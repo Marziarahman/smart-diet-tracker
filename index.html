@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Diet Tracker - Bangladeshi Foods</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Google Font Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="container header-content">
+      <div class="brand-wrapper">
+        <div class="brand-icon">🥗</div>
+        <div>
+          <h1 class="brand-title">
+            Smart Diet Tracker
+            <span class="brand-badge">BD Foods</span>
+          </h1>
+          <p class="brand-subtitle">Smart daily calorie tracking with Bangladeshi meals</p>
+        </div>
+      </div>
+
+      <!-- Date Navigator -->
+      <div class="date-navigator">
+        <button id="prevDateBtn" class="date-nav-btn" title="Previous Day">◀</button>
+        <span id="currentDateLabel" class="current-date-label" title="Click to pick a date">Today</span>
+        <button id="nextDateBtn" class="date-nav-btn" title="Next Day">▶</button>
+        <input type="date" id="hiddenDatePicker" class="date-picker-hidden">
+      </div>
+    </div>
+  </header>
+
+  <main class="container main-layout">
+    
+    <!-- LEFT COLUMN: Log Food Form -->
+    <section class="log-section">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>➕</span> Log Food
+          </h2>
+          <span id="activeMealLabel" class="brand-badge">Breakfast</span>
+        </div>
+
+        <!-- Meal Selector Tabs -->
+        <div class="meal-type-selector" id="mealSelector">
+          <button type="button" class="meal-tab-btn active" data-meal="Breakfast">
+            <span class="tab-icon">☀️</span>
+            <span>Breakfast</span>
+          </button>
+          <button type="button" class="meal-tab-btn" data-meal="Lunch">
+            <span class="tab-icon">🍛</span>
+            <span>Lunch</span>
+          </button>
+          <button type="button" class="meal-tab-btn" data-meal="Dinner">
+            <span class="tab-icon">🌙</span>
+            <span>Dinner</span>
+          </button>
+          <button type="button" class="meal-tab-btn" data-meal="Snack">
+            <span class="tab-icon">☕</span>
+            <span>Snack</span>
+          </button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-box-wrapper">
+          <span class="search-icon-inside">🔍</span>
+          <input type="text" id="foodSearchInput" class="search-input" placeholder="Search food (e.g., rice, dim, ruti, cha)..." autocomplete="off">
+          <button id="clearSearchBtn" class="clear-search-btn" title="Clear search">✕</button>
+        </div>
+
+        <!-- Category Filter Pills -->
+        <div class="category-scroll" id="categoryPills">
+          <!-- Dynamically populated from data.js -->
+        </div>
+
+        <!-- Food Options List -->
+        <div class="food-options-container" id="foodOptionsList">
+          <!-- Dynamically rendered options -->
+        </div>
+
+        <!-- Selected Food & Quantity / Unit Controls -->
+        <div class="selected-food-details active" id="selectedFoodBox">
+          <div class="selected-food-header">
+            <div class="selected-food-title" id="selectedFoodName">Plain White Rice (সাদা ভাত)</div>
+            <div class="serving-badge" id="selectedFoodServing">150g (195 kcal)</div>
+          </div>
+
+          <!-- Quantity and Unit Row -->
+          <div class="qty-unit-control-row">
+            <div class="control-col">
+              <label class="form-label" for="portionQtyInput">Quantity:</label>
+              <div class="stepper-control">
+                <button type="button" id="qtyMinusBtn" class="stepper-btn">−</button>
+                <input type="number" id="portionQtyInput" class="stepper-input" value="150" min="0.1" max="5000" step="1">
+                <button type="button" id="qtyPlusBtn" class="stepper-btn">+</button>
+              </div>
+            </div>
+
+            <div class="control-col unit-col">
+              <label class="form-label" for="unitSelector">Measuring Unit:</label>
+              <select id="unitSelector" class="unit-dropdown">
+                <!-- Dynamically populated: Serving (1 piece), Piece (~weight), Gram (g) -->
+              </select>
+            </div>
+          </div>
+
+          <!-- Dynamic Quick Amount Presets -->
+          <div class="presets-row">
+            <span class="presets-label">Quick amount:</span>
+            <div class="quick-multiplier-chips" id="quickPresetChips">
+              <!-- Dynamically populated based on active unit -->
+            </div>
+          </div>
+
+          <!-- Smart Nutrition Breakdown Grid (Calories, Protein, Carbs, Fat) -->
+          <div class="nutrition-breakdown-grid">
+            <div class="nutrition-badge-card cal-badge">
+              <span class="nutri-label">🔥 Calories</span>
+              <div class="nutri-val-wrap">
+                <span class="nutri-val" id="liveCaloriesPreview">195</span>
+                <span class="nutri-unit">kcal</span>
+              </div>
+            </div>
+            <div class="nutrition-badge-card protein-badge">
+              <span class="nutri-label">💪 Protein</span>
+              <div class="nutri-val-wrap">
+                <span class="nutri-val" id="liveProteinPreview">4.1</span>
+                <span class="nutri-unit">g</span>
+              </div>
+            </div>
+            <div class="nutrition-badge-card carbs-badge">
+              <span class="nutri-label">🌾 Carbs</span>
+              <div class="nutri-val-wrap">
+                <span class="nutri-val" id="liveCarbsPreview">42.0</span>
+                <span class="nutri-unit">g</span>
+              </div>
+            </div>
+            <div class="nutrition-badge-card fat-badge">
+              <span class="nutri-label">🥑 Fat</span>
+              <div class="nutri-val-wrap">
+                <span class="nutri-val" id="liveFatPreview">0.5</span>
+                <span class="nutri-unit">g</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add to Meal Button -->
+          <div class="add-action-box">
+            <button type="button" id="addFoodBtn" class="btn-primary" style="width: 100%; justify-content: center; padding: 12px;">
+              <span>+</span> Add to <span id="addBtnMealText">Breakfast</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Custom Food Option Toggle -->
+        <div class="custom-food-toggle-wrap">
+          <button type="button" id="toggleCustomFoodBtn" class="btn-link">+ Can't find your food? Add custom item</button>
+          
+          <form id="customFoodForm" class="custom-food-form">
+            <div class="form-group">
+              <label class="form-label" for="customFoodName">Food Name:</label>
+              <input type="text" id="customFoodName" class="form-input" placeholder="e.g., Homemade Payesh / পায়েস" required>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div class="form-group">
+                <label class="form-label" for="customFoodQty">Base Quantity:</label>
+                <input type="number" id="customFoodQty" class="form-input" value="100" min="0.1" step="any" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="customFoodUnit">Unit:</label>
+                <select id="customFoodUnit" class="form-input">
+                  <option value="serving">Serving (1 piece / standard)</option>
+                  <option value="piece">Piece (~weight)</option>
+                  <option value="gram">Gram (g)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="customFoodCalories">Calories for this quantity (kcal):</label>
+              <input type="number" id="customFoodCalories" class="form-input" placeholder="e.g., 180" min="1" max="5000" required>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+              <div class="form-group">
+                <label class="form-label" for="customFoodProtein">Protein (g):</label>
+                <input type="number" id="customFoodProtein" class="form-input" placeholder="0" min="0" step="0.1">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="customFoodCarbs">Carbs (g):</label>
+                <input type="number" id="customFoodCarbs" class="form-input" placeholder="0" min="0" step="0.1">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="customFoodFat">Fat (g):</label>
+                <input type="number" id="customFoodFat" class="form-input" placeholder="0" min="0" step="0.1">
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px;">
+              <button type="button" id="cancelCustomFoodBtn" class="cat-pill">Cancel</button>
+              <button type="submit" class="btn-primary" style="padding: 6px 14px; font-size: 0.82rem;">Save & Select</button>
+            </div>
+          </form>
+      </div>
+
+      <!-- Personal Health & Calorie Calculator Card -->
+      <div class="card" id="healthCalculatorCard">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>🧮</span> Personal Health & Calorie Calculator
+          </h2>
+          <span class="brand-badge">Mifflin-St Jeor</span>
+        </div>
+
+        <form id="healthCalcForm">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <!-- Age -->
+            <div class="form-group">
+              <label class="form-label" for="calcAge">Age (years):</label>
+              <input type="number" id="calcAge" class="form-input" placeholder="e.g., 28" min="10" max="120" value="28" required>
+            </div>
+
+            <!-- Gender -->
+            <div class="form-group">
+              <label class="form-label" for="calcGender">Gender:</label>
+              <select id="calcGender" class="form-input">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Height & Current Weight -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="form-group">
+              <label class="form-label" for="calcHeight">Height (cm):</label>
+              <input type="number" id="calcHeight" class="form-input" placeholder="e.g., 170" min="50" max="250" step="0.5" value="170" required>
+              <small id="heightFtInLabel" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 3px;">≈ 5 ft 7 in</small>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="calcWeight">Current Weight (kg):</label>
+              <input type="number" id="calcWeight" class="form-input" placeholder="e.g., 75" min="20" max="300" step="0.1" value="75" required>
+            </div>
+          </div>
+
+          <!-- Activity Level -->
+          <div class="form-group">
+            <label class="form-label" for="calcActivity">Activity Level:</label>
+            <select id="calcActivity" class="form-input">
+              <option value="1.2">Sedentary (little or no exercise, desk job)</option>
+              <option value="1.375" selected>Lightly Active (light exercise 1–3 days/week)</option>
+              <option value="1.55">Moderately Active (moderate exercise 3–5 days/week)</option>
+              <option value="1.725">Very Active (hard exercise 6–7 days/week)</option>
+              <option value="1.9">Extra Active (intense daily training or physical job)</option>
+            </select>
+          </div>
+
+          <!-- Target Weight -->
+          <div class="form-group">
+            <label class="form-label" for="calcTargetWeight">Target Weight (kg):</label>
+            <input type="number" id="calcTargetWeight" class="form-input" placeholder="e.g., 68" min="20" max="300" step="0.1" value="68" required>
+          </div>
+
+          <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 4px; padding: 11px;">
+            <span>⚡</span> Calculate Health Metrics
+          </button>
+        </form>
+
+        <!-- Calculated Results Panel -->
+        <div id="healthResultsPanel" class="health-results-panel" style="display: none; margin-top: 16px;">
+          <div class="calc-results-divider"></div>
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+            <span>📋</span> Calculated Results & Target
+          </h3>
+
+          <div class="health-metrics-grid">
+            <!-- 1. BMI -->
+            <div class="metric-card">
+              <span class="metric-label">Body Mass Index (BMI)</span>
+              <div class="metric-value-wrap">
+                <span class="metric-val" id="resBmi">26.0</span>
+              </div>
+            </div>
+
+            <!-- 2. BMI Category -->
+            <div class="metric-card">
+              <span class="metric-label">BMI Category</span>
+              <div class="metric-value-wrap">
+                <span class="bmi-badge-tag" id="resBmiCategory">Overweight</span>
+              </div>
+            </div>
+
+            <!-- 3. BMR -->
+            <div class="metric-card">
+              <span class="metric-label">BMR (Basal Rate)</span>
+              <div class="metric-value-wrap">
+                <span class="metric-val" id="resBmr">1,675</span>
+                <span class="metric-unit">kcal/day</span>
+              </div>
+            </div>
+
+            <!-- 4. TDEE / Maintenance -->
+            <div class="metric-card">
+              <span class="metric-label">Maintenance (TDEE)</span>
+              <div class="metric-value-wrap">
+                <span class="metric-val" id="resTdee">2,303</span>
+                <span class="metric-unit">kcal/day</span>
+              </div>
+            </div>
+
+            <!-- 5. Suggested Calorie Target -->
+            <div class="metric-card highlight-target">
+              <span class="metric-label">Suggested Daily Calorie Target (Weight Loss)</span>
+              <div class="metric-value-wrap">
+                <span class="metric-val text-primary" id="resTargetCalories">1,850</span>
+                <span class="metric-unit">kcal/day</span>
+              </div>
+              <small class="metric-subtitle" id="resDeficitNote">Moderate safe deficit (~450 kcal/day)</small>
+            </div>
+
+            <!-- 6. Target Weight -->
+            <div class="metric-card" style="grid-column: span 2;">
+              <span class="metric-label">Target Weight</span>
+              <div class="metric-value-wrap">
+                <span class="metric-val" id="resTargetWeight">68</span>
+                <span class="metric-unit">kg</span>
+                <span class="metric-subtitle" id="resWeightDiff" style="margin-left: 8px; font-weight: 600;">(-7 kg to reach goal)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Apply as Daily Goal Button -->
+          <div style="margin-top: 14px;">
+            <button type="button" id="applyGoalFromCalcBtn" class="btn-apply-goal">
+              <span>🎯</span> Set <strong id="btnTargetKcalSpan">1,850 kcal</strong> as My Daily Goal
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: Dashboard & Daily Meal Logs -->
+    <section class="dashboard-section">
+      
+      <!-- Calorie Summary Dashboard Card -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>📊</span> Daily Calorie Goal
+          </h2>
+          <button type="button" id="openGoalModalBtn" class="btn-edit-goal">
+            ✏️ Change Goal
+          </button>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="dashboard-grid">
+          <div class="stat-box highlight">
+            <div class="stat-label">Consumed</div>
+            <div class="stat-val" id="consumedCaloriesVal">0</div>
+            <span class="stat-unit">kcal</span>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Daily Goal</div>
+            <div class="stat-val" id="dailyGoalVal">2,000</div>
+            <span class="stat-unit">kcal</span>
+          </div>
+          <div class="stat-box" id="remainingStatBox">
+            <div class="stat-label" id="remainingStatLabel">Remaining</div>
+            <div class="stat-val" id="remainingCaloriesVal">2,000</div>
+            <span class="stat-unit">kcal</span>
+          </div>
+        </div>
+
+        <!-- Dynamic Progress Bar -->
+        <div class="progress-container">
+          <div class="progress-header">
+            <span id="progressPercentLabel">0% of daily goal</span>
+            <span id="progressStatusText">On track</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Meal Summary Distribution Pills -->
+        <div class="meal-summary-pills">
+          <div class="meal-pill">
+            <span class="meal-pill-title">☀️ Breakfast</span>
+            <span class="meal-pill-cals" id="breakfastTotalPill">0 kcal</span>
+          </div>
+          <div class="meal-pill">
+            <span class="meal-pill-title">🍛 Lunch</span>
+            <span class="meal-pill-cals" id="lunchTotalPill">0 kcal</span>
+          </div>
+          <div class="meal-pill">
+            <span class="meal-pill-title">🌙 Dinner</span>
+            <span class="meal-pill-cals" id="dinnerTotalPill">0 kcal</span>
+          </div>
+          <div class="meal-pill">
+            <span class="meal-pill-title">☕ Snack</span>
+            <span class="meal-pill-cals" id="snackTotalPill">0 kcal</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Meal Log Breakdown -->
+      <div class="meal-card-list">
+        
+        <!-- Breakfast Card -->
+        <div class="meal-log-card" id="card-Breakfast">
+          <div class="meal-log-header">
+            <div class="meal-log-title-wrap">
+              <span class="meal-log-icon">☀️</span>
+              <span class="meal-log-name">Breakfast</span>
+            </div>
+            <span class="meal-log-subtotal" id="breakfastSubtotal">0 kcal</span>
+          </div>
+          <ul class="meal-items-list" id="breakfastItemsList">
+            <li class="meal-empty-state">No breakfast items logged yet.</li>
+          </ul>
+        </div>
+
+        <!-- Lunch Card -->
+        <div class="meal-log-card" id="card-Lunch">
+          <div class="meal-log-header">
+            <div class="meal-log-title-wrap">
+              <span class="meal-log-icon">🍛</span>
+              <span class="meal-log-name">Lunch</span>
+            </div>
+            <span class="meal-log-subtotal" id="lunchSubtotal">0 kcal</span>
+          </div>
+          <ul class="meal-items-list" id="lunchItemsList">
+            <li class="meal-empty-state">No lunch items logged yet.</li>
+          </ul>
+        </div>
+
+        <!-- Dinner Card -->
+        <div class="meal-log-card" id="card-Dinner">
+          <div class="meal-log-header">
+            <div class="meal-log-title-wrap">
+              <span class="meal-log-icon">🌙</span>
+              <span class="meal-log-name">Dinner</span>
+            </div>
+            <span class="meal-log-subtotal" id="dinnerSubtotal">0 kcal</span>
+          </div>
+          <ul class="meal-items-list" id="dinnerItemsList">
+            <li class="meal-empty-state">No dinner items logged yet.</li>
+          </ul>
+        </div>
+
+        <!-- Snack Card -->
+        <div class="meal-log-card" id="card-Snack">
+          <div class="meal-log-header">
+            <div class="meal-log-title-wrap">
+              <span class="meal-log-icon">☕</span>
+              <span class="meal-log-name">Snack & Beverages</span>
+            </div>
+            <span class="meal-log-subtotal" id="snackSubtotal">0 kcal</span>
+          </div>
+          <ul class="meal-items-list" id="snackItemsList">
+            <li class="meal-empty-state">No snacks logged yet.</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Disclaimer Note -->
+      <div class="disclaimer-card">
+        <div class="disclaimer-icon">ℹ️</div>
+        <div class="disclaimer-text">
+          <strong>Calorie Estimates Notice:</strong> The nutrition and calorie values shown are standard nutritional estimates tailored for common Bangladeshi home recipes and serving portions. Exact calories can vary based on the amount of cooking oil (সরিষার তেল / সয়াবিন তেল), sugar, portion size, brand, and preparation methods.
+        </div>
+      </div>
+
+      <!-- Daily Reset & Export actions -->
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;">
+        <button type="button" id="clearDayLogBtn" class="btn-link" style="color: var(--danger); font-size: 0.78rem;">
+          🗑️ Clear Today's Log
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Edit Goal Modal Dialog -->
+  <div class="modal-backdrop" id="goalModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Set Daily Calorie Target</h3>
+        <button type="button" class="btn-close-modal" id="closeGoalModalBtn">✕</button>
+      </div>
+
+      <div class="preset-goals">
+        <button type="button" class="preset-goal-btn" data-preset="1500">1,500 kcal</button>
+        <button type="button" class="preset-goal-btn" data-preset="1800">1,800 kcal</button>
+        <button type="button" class="preset-goal-btn" data-preset="2000">2,000 kcal</button>
+        <button type="button" class="preset-goal-btn" data-preset="2200">2,200 kcal</button>
+        <button type="button" class="preset-goal-btn" data-preset="2500">2,500 kcal</button>
+      </div>
+
+      <form id="goalForm">
+        <div class="form-group">
+          <label class="form-label" for="goalInput">Custom Daily Goal (kcal):</label>
+          <input type="number" id="goalInput" class="form-input" min="500" max="10000" step="50" required>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+          <button type="button" class="cat-pill" id="cancelGoalModalBtn">Cancel</button>
+          <button type="submit" class="btn-primary" style="padding: 8px 18px;">Save Goal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Scripts -->
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
