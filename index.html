@@ -471,6 +471,163 @@
 
       </div>
 
+      <!-- Weight & Progress Tracking Section -->
+      <div class="card" id="weightProgressCard">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>📈</span> Weight & Progress Tracking
+          </h2>
+          <span class="brand-badge">Journey</span>
+        </div>
+
+        <!-- Weight Stats Overview Grid (5 Items) -->
+        <div class="progress-stats-grid">
+          <div class="stat-box">
+            <div class="stat-label">Starting Weight</div>
+            <div class="stat-val" id="wpStartingWeight">--</div>
+            <span class="stat-unit">kg</span>
+          </div>
+          <div class="stat-box highlight">
+            <div class="stat-label">Current Weight</div>
+            <div class="stat-val" id="wpCurrentWeight">--</div>
+            <span class="stat-unit">kg</span>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Target Weight</div>
+            <div class="stat-val" id="wpTargetWeight">--</div>
+            <span class="stat-unit">kg</span>
+          </div>
+          <div class="stat-box" id="wpChangeBox">
+            <div class="stat-label" id="wpChangeLabel">Total Lost / Gained</div>
+            <div class="stat-val" id="wpTotalChange">0.0</div>
+            <span class="stat-unit">kg</span>
+          </div>
+          <div class="stat-box" id="wpRemainingBox">
+            <div class="stat-label">Remaining to Goal</div>
+            <div class="stat-val" id="wpRemainingWeight">--</div>
+            <span class="stat-unit">kg</span>
+          </div>
+        </div>
+
+        <!-- Visual Progress Toward Target Weight -->
+        <div class="weight-goal-progress-wrap">
+          <div class="progress-header">
+            <span id="wpProgressPercentLabel">0% toward target weight</span>
+            <span id="wpProgressStatusText">Set your weight entries to track</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="wpProgressBarFill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Add Current Weight Form with Date -->
+        <form id="weightLogForm" class="weight-log-form">
+          <div class="weight-form-row">
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label" for="weightInputDate">Date:</label>
+              <input type="date" id="weightInputDate" class="form-input" required>
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label" for="weightInputVal">Weight (kg):</label>
+              <input type="number" id="weightInputVal" class="form-input" placeholder="e.g. 74.5" min="20" max="300" step="0.1" required>
+            </div>
+            <div class="form-group weight-submit-col">
+              <label class="form-label">&nbsp;</label>
+              <div style="display: flex; gap: 8px;">
+                <button type="submit" id="saveWeightBtn" class="btn-primary" style="flex: 1; height: 42px; padding: 0 16px;">
+                  <span>+</span> Log Weight
+                </button>
+                <button type="button" id="cancelWeightEditBtn" class="cat-pill" style="display: none; height: 42px; padding: 0 14px; font-weight: 600;">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <!-- Simple Responsive Weight Progress Chart -->
+        <div class="weight-chart-container">
+          <div class="chart-header">
+            <span class="chart-title">📊 Weight Trend Over Time</span>
+            <span class="chart-subtitle" id="chartRangeSubtitle">History</span>
+          </div>
+          <div class="chart-canvas-wrap" id="chartCanvasWrap">
+            <canvas id="weightTrendCanvas" height="180"></canvas>
+          </div>
+        </div>
+
+        <!-- Weekly Summary Card -->
+        <div class="weekly-summary-box">
+          <div class="weekly-summary-header">
+            <span class="weekly-summary-title">🗓️ Weekly Summary (Past 7 Days)</span>
+          </div>
+          <div class="weekly-metrics-grid">
+            <div class="weekly-metric-item">
+              <span class="weekly-metric-label">Avg Daily Calories</span>
+              <span class="weekly-metric-val" id="wsAvgCalories">0 kcal</span>
+            </div>
+            <div class="weekly-metric-item">
+              <span class="weekly-metric-label">Avg Daily Protein</span>
+              <span class="weekly-metric-val" id="wsAvgProtein">0 g</span>
+            </div>
+            <div class="weekly-metric-item">
+              <span class="weekly-metric-label">Weight Change</span>
+              <span class="weekly-metric-val" id="wsWeightChange">0.0 kg</span>
+            </div>
+            <div class="weekly-metric-item">
+              <span class="weekly-metric-label">Days Food Logged</span>
+              <span class="weekly-metric-val" id="wsDaysLogged">0 / 7 days</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Weight History Table / List -->
+        <div class="weight-history-wrap">
+          <div class="history-header">
+            <span class="history-title">📋 Weight History</span>
+            <span class="history-count-badge" id="historyCountBadge">0 records</span>
+          </div>
+          <div class="weight-table-scroll">
+            <table class="weight-table" id="weightTable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Weight</th>
+                  <th>Change</th>
+                  <th style="text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="weightHistoryTableBody">
+                <!-- Dynamically populated with Edit and Delete -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Backup & Restore Data Card -->
+        <div class="backup-restore-card">
+          <div class="backup-restore-header">
+            <div class="backup-title-wrap">
+              <span class="backup-icon">💾</span>
+              <div>
+                <h3 class="backup-title">Backup & Restore My Data</h3>
+                <p class="backup-subtitle">Export your weight journey, food logs, and personal settings as a JSON file or restore a previous backup.</p>
+              </div>
+            </div>
+            <div class="backup-actions">
+              <button type="button" id="backupDataBtn" class="btn-backup" title="Download backup JSON file">
+                <span>📥</span> Backup My Data
+              </button>
+              <button type="button" id="restoreDataBtn" class="btn-restore" title="Restore data from backup JSON file">
+                <span>📤</span> Restore My Data
+              </button>
+              <input type="file" id="restoreFileInput" accept=".json,application/json" style="display: none;">
+            </div>
+          </div>
+        </div>
+
+      </div>
+
       <!-- Disclaimer Note -->
       <div class="disclaimer-card">
         <div class="disclaimer-icon">ℹ️</div>

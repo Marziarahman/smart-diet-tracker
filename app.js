@@ -12,6 +12,7 @@
   const STORAGE_KEY_GOAL = 'dietTracker_dailyGoal_v1';
   const STORAGE_KEY_CUSTOM = 'dietTracker_customFoods_v1';
   const STORAGE_KEY_PROFILE = 'dietTracker_userProfile_v1';
+  const STORAGE_KEY_WEIGHT = 'dietTracker_weightHistory_v1';
 
   // --- State ---
   let selectedDate = getTodayDateString();
@@ -25,6 +26,7 @@
   let dailyLogs = {};
   let userProfile = null;
   let calculatedHealthTarget = 1850;
+  let weightHistory = [];
 
   // --- DOM Elements ---
   const elCurrentDateLabel = document.getElementById('currentDateLabel');
@@ -165,6 +167,26 @@
       if (savedProfile) {
         userProfile = JSON.parse(savedProfile);
       }
+
+      const savedWeight = localStorage.getItem(STORAGE_KEY_WEIGHT);
+      if (savedWeight !== null) {
+        try {
+          weightHistory = JSON.parse(savedWeight) || [];
+        } catch (err) {
+          console.warn('Error parsing saved weight:', err);
+          weightHistory = [];
+        }
+      } else if (userProfile && userProfile.weight) {
+        // Pre-seed initial weight record from userProfile only on first-ever launch
+        weightHistory = [{
+          id: 'w_' + Date.now(),
+          date: getTodayDateString(),
+          weight: parseFloat(userProfile.weight)
+        }];
+        saveWeightHistory();
+      } else {
+        weightHistory = [];
+      }
     } catch (e) {
       console.warn('LocalStorage error:', e);
     }
@@ -177,6 +199,14 @@
       }
     } catch (e) {
       console.warn('LocalStorage save profile error:', e);
+    }
+  }
+
+  function saveWeightHistory() {
+    try {
+      localStorage.setItem(STORAGE_KEY_WEIGHT, JSON.stringify(weightHistory));
+    } catch (e) {
+      console.warn('LocalStorage save weight history error:', e);
     }
   }
 
@@ -517,6 +547,9 @@
     saveLogs();
     renderDayLogs();
     updateDashboardStats();
+    if (typeof window.refreshWeightProgressFromCalc === 'function') {
+      window.refreshWeightProgressFromCalc();
+    }
 
     showToast(`Added ${entry.foodName} (${qty} ${unitKey}) to ${activeMeal} (+${totalCals} kcal)`);
   }
@@ -530,6 +563,9 @@
       saveLogs();
       renderDayLogs();
       updateDashboardStats();
+      if (typeof window.refreshWeightProgressFromCalc === 'function') {
+        window.refreshWeightProgressFromCalc();
+      }
       showToast(`Removed ${removed.foodName}`, '🗑️');
     }
   }
@@ -846,6 +882,9 @@
         saveLogs();
         renderDayLogs();
         updateDashboardStats();
+        if (typeof window.refreshWeightProgressFromCalc === 'function') {
+          window.refreshWeightProgressFromCalc();
+        }
         showToast(`Cleared log for ${formatDateForDisplay(selectedDate)}`, '🗑️');
       }
     });
@@ -994,6 +1033,10 @@
       userProfile = { age, gender, height, weight, activity, targetWeight, calculatedTarget: targetKcal };
       saveUserProfile();
 
+      if (typeof window.refreshWeightProgressFromCalc === 'function') {
+        window.refreshWeightProgressFromCalc();
+      }
+
       if (!isInitial) {
         showToast('Personal health metrics & calorie target calculated!', '⚡');
       }
@@ -1030,6 +1073,704 @@
     }
   }
 
+  // --- Weight & Progress Tracking Implementation ---
+  function initWeightProgressTracking() {
+    const elWeightInputDate = document.getElementById('weightInputDate');
+    const elWeightInputVal = document.getElementById('weightInputVal');
+    const elWeightLogForm = document.getElementById('weightLogForm');
+
+    const elWpStartingWeight = document.getElementById('wpStartingWeight');
+    const elWpCurrentWeight = document.getElementById('wpCurrentWeight');
+    const elWpTargetWeight = document.getElementById('wpTargetWeight');
+    const elWpTotalChange = document.getElementById('wpTotalChange');
+    const elWpChangeBox = document.getElementById('wpChangeBox');
+    const elWpChangeLabel = document.getElementById('wpChangeLabel');
+    const elWpRemainingWeight = document.getElementById('wpRemainingWeight');
+    const elWpProgressPercentLabel = document.getElementById('wpProgressPercentLabel');
+    const elWpProgressStatusText = document.getElementById('wpProgressStatusText');
+    const elWpProgressBarFill = document.getElementById('wpProgressBarFill');
+
+    const elWeightTrendCanvas = document.getElementById('weightTrendCanvas');
+    const elChartRangeSubtitle = document.getElementById('chartRangeSubtitle');
+
+    const elWsAvgCalories = document.getElementById('wsAvgCalories');
+    const elWsAvgProtein = document.getElementById('wsAvgProtein');
+    const elWsWeightChange = document.getElementById('wsWeightChange');
+    const elWsDaysLogged = document.getElementById('wsDaysLogged');
+
+    const elHistoryCountBadge = document.getElementById('historyCountBadge');
+    const elWeightHistoryTableBody = document.getElementById('weightHistoryTableBody');
+
+    const elSaveWeightBtn = document.getElementById('saveWeightBtn');
+    const elCancelWeightEditBtn = document.getElementById('cancelWeightEditBtn');
+
+    const elBackupDataBtn = document.getElementById('backupDataBtn');
+    const elRestoreDataBtn = document.getElementById('restoreDataBtn');
+    const elRestoreFileInput = document.getElementById('restoreFileInput');
+
+    let editingWeightId = null;
+
+    if (!elWeightLogForm) return;
+
+    // Set today as default date in input
+    if (elWeightInputDate) {
+      elWeightInputDate.value = getTodayDateString();
+    }
+
+    // Default weight suggestion if empty
+    if (elWeightInputVal && (!elWeightInputVal.value || elWeightInputVal.value === '')) {
+      if (weightHistory.length > 0) {
+        const sorted = [...weightHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
+        elWeightInputVal.value = sorted[0].weight;
+      } else if (userProfile && userProfile.weight) {
+        elWeightInputVal.value = userProfile.weight;
+      }
+    }
+
+    // Cancel edit mode
+    if (elCancelWeightEditBtn) {
+      elCancelWeightEditBtn.addEventListener('click', () => {
+        editingWeightId = null;
+        if (elSaveWeightBtn) elSaveWeightBtn.innerHTML = '<span>+</span> Log Weight';
+        elCancelWeightEditBtn.style.display = 'none';
+        if (elWeightInputDate) elWeightInputDate.value = getTodayDateString();
+        if (weightHistory.length > 0) {
+          const sorted = [...weightHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
+          if (elWeightInputVal) elWeightInputVal.value = sorted[0].weight;
+        }
+      });
+    }
+
+    // Form submission (Add or Edit)
+    elWeightLogForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const inputDate = elWeightInputDate.value;
+      const weightVal = parseFloat(elWeightInputVal.value);
+
+      if (!inputDate) {
+        showToast('Please select a valid date', '⚠️');
+        return;
+      }
+      if (isNaN(weightVal) || weightVal < 20 || weightVal > 300) {
+        showToast('Please enter a realistic weight between 20 and 300 kg', '⚠️');
+        return;
+      }
+
+      if (editingWeightId) {
+        // Updating existing record
+        const recIdx = weightHistory.findIndex(w => w.id === editingWeightId);
+        if (recIdx > -1) {
+          weightHistory[recIdx].date = inputDate;
+          weightHistory[recIdx].weight = parseFloat(weightVal.toFixed(1));
+          showToast(`Updated weight record for ${formatDateForDisplay(inputDate)} to ${weightVal.toFixed(1)} kg`, '✏️');
+        }
+
+        // Reset edit mode
+        editingWeightId = null;
+        if (elSaveWeightBtn) elSaveWeightBtn.innerHTML = '<span>+</span> Log Weight';
+        if (elCancelWeightEditBtn) elCancelWeightEditBtn.style.display = 'none';
+      } else {
+        // Adding or updating by date
+        const existingIdx = weightHistory.findIndex(w => w.date === inputDate);
+        if (existingIdx > -1) {
+          weightHistory[existingIdx].weight = parseFloat(weightVal.toFixed(1));
+          showToast(`Updated weight record for ${formatDateForDisplay(inputDate)} to ${weightVal.toFixed(1)} kg`, '⚖️');
+        } else {
+          weightHistory.push({
+            id: 'w_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+            date: inputDate,
+            weight: parseFloat(weightVal.toFixed(1))
+          });
+          showToast(`Logged weight ${weightVal.toFixed(1)} kg on ${formatDateForDisplay(inputDate)}`, '⚖️');
+        }
+      }
+
+      // Sync with userProfile current weight if latest
+      const latestSorted = [...weightHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
+      if (userProfile && latestSorted.length > 0) {
+        userProfile.weight = latestSorted[0].weight;
+        saveUserProfile();
+        const elCalcWeight = document.getElementById('calcWeight');
+        if (elCalcWeight) elCalcWeight.value = userProfile.weight;
+      }
+
+      saveWeightHistory();
+      renderAllWeightProgress();
+    });
+
+    // Start editing an existing weight record
+    window.startEditWeightRecord = function (recordId) {
+      const rec = weightHistory.find(w => w.id === recordId);
+      if (!rec) return;
+
+      editingWeightId = rec.id;
+      if (elWeightInputDate) elWeightInputDate.value = rec.date;
+      if (elWeightInputVal) elWeightInputVal.value = rec.weight;
+
+      if (elSaveWeightBtn) elSaveWeightBtn.innerHTML = '<span>✓</span> Update Weight';
+      if (elCancelWeightEditBtn) elCancelWeightEditBtn.style.display = 'inline-block';
+
+      elWeightLogForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (elWeightInputVal) {
+        elWeightInputVal.focus();
+        elWeightInputVal.select();
+      }
+      showToast(`Editing weight record for ${formatDateForDisplay(rec.date)}`, '✏️');
+    };
+
+    // Delete weight record with confirmation
+    window.deleteWeightRecord = function (recordId) {
+      const rec = weightHistory.find(w => w.id === recordId);
+      if (!rec) return;
+
+      if (confirm(`Are you sure you want to delete the weight record of ${rec.weight.toFixed(1)} kg on ${formatDateForDisplay(rec.date)}?`)) {
+        const idx = weightHistory.findIndex(w => w.id === recordId);
+        if (idx > -1) {
+          const removed = weightHistory.splice(idx, 1)[0];
+          if (editingWeightId === recordId) {
+            editingWeightId = null;
+            if (elSaveWeightBtn) elSaveWeightBtn.innerHTML = '<span>+</span> Log Weight';
+            if (elCancelWeightEditBtn) elCancelWeightEditBtn.style.display = 'none';
+          }
+          saveWeightHistory();
+          renderAllWeightProgress();
+          showToast(`Deleted weight record for ${formatDateForDisplay(removed.date)}`, '🗑️');
+        }
+      }
+    };
+
+    window.refreshWeightProgressFromCalc = function () {
+      renderAllWeightProgress();
+    };
+
+    // --- Backup My Data ---
+    if (elBackupDataBtn) {
+      elBackupDataBtn.addEventListener('click', () => {
+        try {
+          const backupPayload = {
+            appName: 'Smart Diet Tracker',
+            version: '1.0',
+            exportDate: new Date().toISOString(),
+            data: {
+              weightHistory: weightHistory || [],
+              userProfile: userProfile || null,
+              dailyGoal: dailyGoal || 2000,
+              dailyLogs: dailyLogs || {},
+              customFoods: customFoods || []
+            }
+          };
+
+          const jsonStr = JSON.stringify(backupPayload, null, 2);
+          const blob = new Blob([jsonStr], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'smart-diet-tracker-backup.json';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          showToast('Backup downloaded: smart-diet-tracker-backup.json', '📥');
+        } catch (err) {
+          console.error('Backup error:', err);
+          showToast('Failed to export backup data', '⚠️');
+        }
+      });
+    }
+
+    // --- Restore My Data ---
+    if (elRestoreDataBtn && elRestoreFileInput) {
+      elRestoreDataBtn.addEventListener('click', () => {
+        elRestoreFileInput.value = '';
+        elRestoreFileInput.click();
+      });
+
+      elRestoreFileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const rawContent = event.target.result;
+            const parsed = JSON.parse(rawContent);
+
+            if (!parsed || typeof parsed !== 'object') {
+              showToast('Invalid file: Expected valid JSON backup file', '⚠️');
+              return;
+            }
+
+            // Extract source either from parsed.data or from parsed root
+            const source = (parsed.data && typeof parsed.data === 'object') ? parsed.data : parsed;
+
+            const hasWeightHistory = Array.isArray(source.weightHistory);
+            const hasDailyLogs = source.dailyLogs && typeof source.dailyLogs === 'object';
+            const hasGoal = source.dailyGoal !== undefined;
+            const hasProfile = source.userProfile !== undefined;
+
+            if (!hasWeightHistory && !hasDailyLogs && !hasGoal && !hasProfile) {
+              showToast('Invalid backup: Missing diet tracker data', '⚠️');
+              return;
+            }
+
+            const confirmMsg = "Restoring this backup will replace your current weight history, calorie goals, and food logs with the backup data.\n\nDo you want to proceed?";
+            if (!confirm(confirmMsg)) {
+              showToast('Restore cancelled', 'ℹ️');
+              return;
+            }
+
+            // 1. Restore Weight History
+            if (Array.isArray(source.weightHistory)) {
+              weightHistory = source.weightHistory;
+              saveWeightHistory();
+            }
+
+            // 2. Restore User Profile & Target
+            if (source.userProfile && typeof source.userProfile === 'object') {
+              userProfile = source.userProfile;
+              saveUserProfile();
+            }
+
+            // 3. Restore Daily Goal
+            if (source.dailyGoal && !isNaN(source.dailyGoal)) {
+              dailyGoal = parseInt(source.dailyGoal, 10);
+              saveGoal();
+            }
+
+            // 4. Restore Daily Logs
+            if (source.dailyLogs && typeof source.dailyLogs === 'object') {
+              dailyLogs = source.dailyLogs;
+              saveLogs();
+            }
+
+            // 5. Restore Custom Foods
+            if (Array.isArray(source.customFoods)) {
+              customFoods = source.customFoods;
+              saveCustomFoods();
+              customFoods.forEach(cf => {
+                if (!BANGLADESHI_FOODS.some(f => f.id === cf.id)) {
+                  BANGLADESHI_FOODS.push(cf);
+                }
+              });
+              renderFoodOptions();
+            }
+
+            // Re-render UI components
+            renderDayLogs();
+            updateDashboardStats();
+            renderAllWeightProgress();
+
+            // Sync Health Calculator fields if available
+            const elCalcAge = document.getElementById('calcAge');
+            const elCalcGender = document.getElementById('calcGender');
+            const elCalcHeight = document.getElementById('calcHeight');
+            const elCalcWeight = document.getElementById('calcWeight');
+            const elCalcActivity = document.getElementById('calcActivity');
+            const elCalcTargetWeight = document.getElementById('calcTargetWeight');
+
+            if (userProfile) {
+              if (elCalcAge && userProfile.age !== undefined) elCalcAge.value = userProfile.age;
+              if (elCalcGender && userProfile.gender) elCalcGender.value = userProfile.gender;
+              if (elCalcHeight && userProfile.height !== undefined) elCalcHeight.value = userProfile.height;
+              if (elCalcWeight && userProfile.weight !== undefined) elCalcWeight.value = userProfile.weight;
+              if (elCalcActivity && userProfile.activity !== undefined) elCalcActivity.value = userProfile.activity;
+              if (elCalcTargetWeight && userProfile.targetWeight !== undefined) elCalcTargetWeight.value = userProfile.targetWeight;
+
+              if (typeof window.refreshWeightProgressFromCalc === 'function') {
+                window.refreshWeightProgressFromCalc();
+              }
+            }
+
+            showToast('All app data & weight journey restored!', '✅');
+          } catch (err) {
+            console.error('Restore error:', err);
+            showToast('Failed to parse backup file: ' + err.message, '⚠️');
+          }
+        };
+
+        reader.readAsText(file);
+      });
+    }
+
+    function renderAllWeightProgress() {
+      renderWeightOverviewStats();
+      renderWeightHistoryTable();
+      renderWeightTrendChart();
+      renderWeeklySummary();
+    }
+
+    function renderWeightOverviewStats() {
+      if (weightHistory.length === 0) {
+        elWpStartingWeight.textContent = '--';
+        elWpCurrentWeight.textContent = '--';
+        elWpTargetWeight.textContent = userProfile && userProfile.targetWeight ? `${userProfile.targetWeight}` : '--';
+        elWpTotalChange.textContent = '0.0';
+        elWpRemainingWeight.textContent = '--';
+        elWpProgressPercentLabel.textContent = '0% toward target weight';
+        elWpProgressStatusText.textContent = 'Log your first weight entry above to start tracking';
+        elWpProgressBarFill.style.width = '0%';
+        return;
+      }
+
+      // Sort chronological
+      const chronological = [...weightHistory].sort((a, b) => new Date(a.date) - new Date(b.date));
+      const startWeight = chronological[0].weight;
+      const currentWeight = chronological[chronological.length - 1].weight;
+      const targetWeight = userProfile && userProfile.targetWeight ? parseFloat(userProfile.targetWeight) : null;
+
+      elWpStartingWeight.textContent = startWeight.toFixed(1);
+      elWpCurrentWeight.textContent = currentWeight.toFixed(1);
+      elWpTargetWeight.textContent = targetWeight ? targetWeight.toFixed(1) : '--';
+
+      // Total change
+      const totalChange = currentWeight - startWeight;
+      const changeSign = totalChange > 0 ? '+' : '';
+      elWpTotalChange.textContent = `${changeSign}${totalChange.toFixed(1)}`;
+
+      if (totalChange < -0.05) {
+        elWpChangeLabel.textContent = 'Total Lost';
+        elWpChangeBox.className = 'stat-box success';
+      } else if (totalChange > 0.05) {
+        elWpChangeLabel.textContent = 'Total Gained';
+        elWpChangeBox.className = 'stat-box warning';
+      } else {
+        elWpChangeLabel.textContent = 'No Change';
+        elWpChangeBox.className = 'stat-box';
+      }
+
+      // Remaining to target and visual progress bar
+      if (targetWeight) {
+        const remainingToTarget = currentWeight - targetWeight;
+        const totalPlannedDiff = startWeight - targetWeight;
+
+        if (totalPlannedDiff > 0.05) {
+          // Weight loss goal
+          elWpRemainingWeight.textContent = `${Math.abs(remainingToTarget).toFixed(1)}`;
+
+          if (remainingToTarget <= 0) {
+            elWpProgressPercentLabel.textContent = '🎯 Target weight reached!';
+            elWpProgressStatusText.textContent = `Goal of ${targetWeight.toFixed(1)} kg accomplished!`;
+            elWpProgressBarFill.style.width = '100%';
+            elWpProgressBarFill.className = 'progress-bar-fill';
+          } else {
+            const lostSoFar = startWeight - currentWeight;
+            const pct = Math.max(0, Math.min(100, Math.round((lostSoFar / totalPlannedDiff) * 100)));
+            elWpProgressPercentLabel.textContent = `${pct}% toward target weight (${lostSoFar.toFixed(1)} / ${totalPlannedDiff.toFixed(1)} kg lost)`;
+            elWpProgressStatusText.textContent = `${remainingToTarget.toFixed(1)} kg remaining to reach ${targetWeight.toFixed(1)} kg`;
+            elWpProgressBarFill.style.width = `${pct}%`;
+            elWpProgressBarFill.className = 'progress-bar-fill';
+          }
+        } else if (totalPlannedDiff < -0.05) {
+          // Weight gain goal
+          const gainedSoFar = currentWeight - startWeight;
+          const totalPlannedGain = Math.abs(totalPlannedDiff);
+          elWpRemainingWeight.textContent = `${Math.abs(remainingToTarget).toFixed(1)}`;
+
+          if (remainingToTarget >= 0) {
+            elWpProgressPercentLabel.textContent = '🎯 Target weight reached!';
+            elWpProgressStatusText.textContent = `Goal of ${targetWeight.toFixed(1)} kg accomplished!`;
+            elWpProgressBarFill.style.width = '100%';
+            elWpProgressBarFill.className = 'progress-bar-fill';
+          } else {
+            const pct = Math.max(0, Math.min(100, Math.round((gainedSoFar / totalPlannedGain) * 100)));
+            elWpProgressPercentLabel.textContent = `${pct}% toward target weight (${gainedSoFar.toFixed(1)} / ${totalPlannedGain.toFixed(1)} kg gained)`;
+            elWpProgressStatusText.textContent = `${Math.abs(remainingToTarget).toFixed(1)} kg remaining to reach ${targetWeight.toFixed(1)} kg`;
+            elWpProgressBarFill.style.width = `${pct}%`;
+            elWpProgressBarFill.className = 'progress-bar-fill';
+          }
+        } else {
+          // Maintaining
+          elWpRemainingWeight.textContent = '0.0';
+          elWpProgressPercentLabel.textContent = '100% on maintenance';
+          elWpProgressStatusText.textContent = 'Currently at target weight';
+          elWpProgressBarFill.style.width = '100%';
+          elWpProgressBarFill.className = 'progress-bar-fill';
+        }
+      } else {
+        elWpRemainingWeight.textContent = '--';
+        elWpProgressPercentLabel.textContent = 'Set target weight in Health Calculator';
+        elWpProgressStatusText.textContent = `${weightHistory.length} weight records saved`;
+        elWpProgressBarFill.style.width = '0%';
+      }
+    }
+
+    function renderWeightHistoryTable() {
+      elWeightHistoryTableBody.innerHTML = '';
+      elHistoryCountBadge.textContent = `${weightHistory.length} ${weightHistory.length === 1 ? 'record' : 'records'}`;
+
+      if (weightHistory.length === 0) {
+        elWeightHistoryTableBody.innerHTML = `
+          <tr>
+            <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">
+              No weight records saved yet. Use the form above to log your first weight!
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      // Reverse chronological order for history table
+      const reverseSorted = [...weightHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
+      const chronological = [...weightHistory].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      reverseSorted.forEach(item => {
+        const tr = document.createElement('tr');
+
+        // Find change compared to previous chronologically
+        const chronoIndex = chronological.findIndex(w => w.id === item.id);
+        let changeHtml = '<span class="weight-change-tag neutral">--</span>';
+
+        if (chronoIndex > 0) {
+          const prev = chronological[chronoIndex - 1];
+          const diff = item.weight - prev.weight;
+          if (diff < -0.05) {
+            changeHtml = `<span class="weight-change-tag loss">▼ ${Math.abs(diff).toFixed(1)} kg</span>`;
+          } else if (diff > 0.05) {
+            changeHtml = `<span class="weight-change-tag gain">▲ +${diff.toFixed(1)} kg</span>`;
+          } else {
+            changeHtml = `<span class="weight-change-tag neutral">0.0 kg</span>`;
+          }
+        } else {
+          changeHtml = `<span class="weight-change-tag neutral">Start</span>`;
+        }
+
+        tr.innerHTML = `
+          <td><strong>${formatDateForDisplay(item.date)}</strong> <span style="font-size: 0.72rem; color: var(--text-muted);">(${item.date})</span></td>
+          <td><strong style="color: var(--primary-dark); font-size: 0.92rem;">${item.weight.toFixed(1)}</strong> kg</td>
+          <td>${changeHtml}</td>
+          <td style="text-align: right; white-space: nowrap;">
+            <button type="button" class="btn-edit-weight" title="Edit weight record" onclick="startEditWeightRecord('${item.id}')">✏️ Edit</button>
+            <button type="button" class="btn-delete-weight" title="Delete weight record" onclick="deleteWeightRecord('${item.id}')">🗑️ Delete</button>
+          </td>
+        `;
+
+        elWeightHistoryTableBody.appendChild(tr);
+      });
+    }
+
+    // Canvas Chart Rendering
+    function renderWeightTrendChart() {
+      if (!elWeightTrendCanvas) return;
+      const ctx = elWeightTrendCanvas.getContext('2d');
+      if (!ctx) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const rect = elWeightTrendCanvas.getBoundingClientRect();
+      const width = rect.width || elWeightTrendCanvas.parentElement.clientWidth || 500;
+      const height = 180;
+
+      elWeightTrendCanvas.width = width * dpr;
+      elWeightTrendCanvas.height = height * dpr;
+      ctx.resetTransform ? ctx.resetTransform() : ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+
+      ctx.clearRect(0, 0, width, height);
+
+      const chronological = [...weightHistory].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      if (chronological.length < 2) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '13px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+          chronological.length === 1 ? `1 entry (${chronological[0].weight.toFixed(1)} kg) on ${chronological[0].date}. Log 2+ entries to display trend line.` : 'No weight data yet. Log your weight above to see your progress chart.',
+          width / 2,
+          height / 2
+        );
+        elChartRangeSubtitle.textContent = chronological.length === 1 ? '1 record' : '0 records';
+        return;
+      }
+
+      elChartRangeSubtitle.textContent = `${chronological[0].date} → ${chronological[chronological.length - 1].date}`;
+
+      const weights = chronological.map(w => w.weight);
+      const targetWeight = userProfile && userProfile.targetWeight ? parseFloat(userProfile.targetWeight) : null;
+      if (targetWeight) weights.push(targetWeight);
+
+      const rawMin = Math.min(...weights);
+      const rawMax = Math.max(...weights);
+      const paddingY = Math.max(1, (rawMax - rawMin) * 0.2);
+      const minWeight = Math.floor(rawMin - paddingY);
+      const maxWeight = Math.ceil(rawMax + paddingY);
+      const rangeY = Math.max(1, maxWeight - minWeight);
+
+      const padLeft = 45;
+      const padRight = 20;
+      const padTop = 20;
+      const padBottom = 30;
+      const chartWidth = width - padLeft - padRight;
+      const chartHeight = height - padTop - padBottom;
+
+      // Draw Grid Lines & Y Axis Labels
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px Inter, sans-serif';
+      ctx.textAlign = 'right';
+
+      const steps = 4;
+      for (let i = 0; i <= steps; i++) {
+        const val = minWeight + (rangeY * (i / steps));
+        const y = padTop + chartHeight - (chartHeight * (i / steps));
+        ctx.beginPath();
+        ctx.moveTo(padLeft, y);
+        ctx.lineTo(width - padRight, y);
+        ctx.stroke();
+        ctx.fillText(`${val.toFixed(0)} kg`, padLeft - 6, y + 3);
+      }
+
+      // Draw Target Weight Reference Line if available
+      if (targetWeight && targetWeight >= minWeight && targetWeight <= maxWeight) {
+        const targetY = padTop + chartHeight - (((targetWeight - minWeight) / rangeY) * chartHeight);
+        ctx.save();
+        ctx.strokeStyle = '#f59e0b';
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(padLeft, targetY);
+        ctx.lineTo(width - padRight, targetY);
+        ctx.stroke();
+        ctx.fillStyle = '#d97706';
+        ctx.font = '10px Inter, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Target: ${targetWeight.toFixed(1)} kg`, padLeft + 6, targetY - 4);
+        ctx.restore();
+      }
+
+      // Map chronological points
+      const points = chronological.map((item, idx) => {
+        const x = padLeft + (idx / (chronological.length - 1)) * chartWidth;
+        const y = padTop + chartHeight - (((item.weight - minWeight) / rangeY) * chartHeight);
+        return { x, y, weight: item.weight, date: item.date };
+      });
+
+      // Fill Gradient Area under curve
+      const gradient = ctx.createLinearGradient(0, padTop, 0, padTop + chartHeight);
+      gradient.addColorStop(0, 'rgba(13, 148, 136, 0.25)');
+      gradient.addColorStop(1, 'rgba(13, 148, 136, 0.0)');
+
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, padTop + chartHeight);
+      points.forEach((pt) => ctx.lineTo(pt.x, pt.y));
+      ctx.lineTo(points[points.length - 1].x, padTop + chartHeight);
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Draw Trend Line
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      ctx.strokeStyle = '#0d9488';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+
+      // Draw Points & Labels
+      points.forEach((pt, idx) => {
+        // Point circle
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.strokeStyle = '#0d9488';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Top weight label on selected points (first, last, or every point if <= 6)
+        if (chronological.length <= 7 || idx === 0 || idx === points.length - 1) {
+          ctx.fillStyle = '#0f172a';
+          ctx.font = 'bold 10px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${pt.weight.toFixed(1)}`, pt.x, pt.y - 8);
+        }
+
+        // Bottom Date Label
+        if (chronological.length <= 6 || idx === 0 || idx === points.length - 1 || idx === Math.floor(points.length / 2)) {
+          ctx.fillStyle = '#64748b';
+          ctx.font = '9px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          const parts = pt.date.split('-');
+          const shortDate = parts.length === 3 ? `${parts[1]}/${parts[2]}` : pt.date;
+          ctx.fillText(shortDate, pt.x, padTop + chartHeight + 16);
+        }
+      });
+    }
+
+    // Weekly Summary Calculation (past 7 days ending today or selectedDate)
+    function renderWeeklySummary() {
+      const today = new Date();
+      let totalCals7Days = 0;
+      let totalProtein7Days = 0;
+      let daysWithFoodCount = 0;
+
+      const sevenDaysKeys = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dayStr = String(d.getDate()).padStart(2, '0');
+        const k = `${y}-${m}-${dayStr}`;
+        sevenDaysKeys.push(k);
+
+        const dayEntries = dailyLogs[k] || [];
+        if (dayEntries.length > 0) {
+          daysWithFoodCount++;
+          const dayCals = dayEntries.reduce((sum, item) => sum + (item.totalCalories || 0), 0);
+          const dayProt = dayEntries.reduce((sum, item) => sum + (item.protein || 0), 0);
+          totalCals7Days += dayCals;
+          totalProtein7Days += dayProt;
+        }
+      }
+
+      const avgCals = daysWithFoodCount > 0 ? Math.round(totalCals7Days / daysWithFoodCount) : 0;
+      const avgProt = daysWithFoodCount > 0 ? (totalProtein7Days / daysWithFoodCount).toFixed(1) : '0.0';
+
+      elWsAvgCalories.textContent = `${avgCals.toLocaleString()} kcal`;
+      elWsAvgProtein.textContent = `${avgProt} g`;
+      elWsDaysLogged.textContent = `${daysWithFoodCount} / 7 days`;
+
+      // Weight change during the week
+      const earliestKey = sevenDaysKeys[0];
+      const latestKey = sevenDaysKeys[sevenDaysKeys.length - 1];
+
+      const weeklyWeights = weightHistory
+        .filter(w => w.date >= earliestKey && w.date <= latestKey)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      if (weeklyWeights.length >= 2) {
+        const weekDiff = weeklyWeights[weeklyWeights.length - 1].weight - weeklyWeights[0].weight;
+        const sign = weekDiff > 0 ? '+' : '';
+        elWsWeightChange.textContent = `${sign}${weekDiff.toFixed(1)} kg`;
+        elWsWeightChange.style.color = weekDiff < 0 ? 'var(--success)' : weekDiff > 0 ? 'var(--accent)' : 'var(--text-main)';
+      } else if (weightHistory.length >= 2) {
+        // Fallback to recent 2 records
+        const sorted = [...weightHistory].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const recentDiff = sorted[sorted.length - 1].weight - sorted[sorted.length - 2].weight;
+        const sign = recentDiff > 0 ? '+' : '';
+        elWsWeightChange.textContent = `${sign}${recentDiff.toFixed(1)} kg (latest)`;
+        elWsWeightChange.style.color = recentDiff < 0 ? 'var(--success)' : recentDiff > 0 ? 'var(--accent)' : 'var(--text-main)';
+      } else {
+        elWsWeightChange.textContent = '0.0 kg';
+        elWsWeightChange.style.color = 'var(--text-main)';
+      }
+    }
+
+    // Window resize listener for responsive canvas
+    window.addEventListener('resize', () => {
+      renderWeightTrendChart();
+    });
+
+    // Initial render
+    renderAllWeightProgress();
+  }
+
   // --- App Initialization ---
   function initApp() {
     loadStorageData();
@@ -1041,6 +1782,7 @@
     initGoalModal();
     initClearDayLog();
     initHealthCalculator();
+    initWeightProgressTracking();
 
     // Default select first food (Plain White Rice)
     if (BANGLADESHI_FOODS.length > 0) {
