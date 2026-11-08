@@ -323,6 +323,16 @@
               <small class="metric-subtitle" id="resDeficitNote">Moderate safe deficit (~450 kcal/day)</small>
             </div>
 
+            <!-- Suggested Protein Target -->
+            <div class="metric-card highlight-protein-card">
+              <span class="metric-label">Suggested Daily Protein Target</span>
+              <div class="metric-value-wrap">
+                <span class="metric-val text-protein" id="resTargetProtein">85</span>
+                <span class="metric-unit">g/day</span>
+              </div>
+              <small class="metric-subtitle" id="resProteinNote">~1.4 g per kg body weight</small>
+            </div>
+
             <!-- 6. Target Weight -->
             <div class="metric-card" style="grid-column: span 2;">
               <span class="metric-label">Target Weight</span>
@@ -334,10 +344,13 @@
             </div>
           </div>
 
-          <!-- Apply as Daily Goal Button -->
-          <div style="margin-top: 14px;">
+          <!-- Apply Target Buttons -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px;">
             <button type="button" id="applyGoalFromCalcBtn" class="btn-apply-goal">
-              <span>🎯</span> Set <strong id="btnTargetKcalSpan">1,850 kcal</strong> as My Daily Goal
+              <span>🎯</span> Set <strong id="btnTargetKcalSpan">1,850 kcal</strong> as Calorie Goal
+            </button>
+            <button type="button" id="applyProteinFromCalcBtn" class="btn-apply-goal btn-apply-protein">
+              <span>🥩</span> Set <strong id="btnTargetProteinSpan">85 g</strong> as Protein Target
             </button>
           </div>
         </div>
@@ -406,6 +419,68 @@
           <div class="meal-pill">
             <span class="meal-pill-title">☕ Snack</span>
             <span class="meal-pill-cals" id="snackTotalPill">0 kcal</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Protein Summary Dashboard Card -->
+      <div class="card card-protein">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>🥩</span> Daily Protein Goal
+          </h2>
+          <button type="button" id="openProteinModalBtn" class="btn-edit-goal btn-edit-protein">
+            ✏️ Change Target
+          </button>
+        </div>
+
+        <!-- Protein Stats Grid -->
+        <div class="dashboard-grid">
+          <div class="stat-box highlight-protein">
+            <div class="stat-label">Consumed</div>
+            <div class="stat-val" id="consumedProteinVal">0.0</div>
+            <span class="stat-unit">g</span>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Daily Target</div>
+            <div class="stat-val" id="dailyProteinGoalVal">85</div>
+            <span class="stat-unit">g</span>
+          </div>
+          <div class="stat-box" id="remainingProteinStatBox">
+            <div class="stat-label" id="remainingProteinStatLabel">Remaining</div>
+            <div class="stat-val" id="remainingProteinVal">85.0</div>
+            <span class="stat-unit">g</span>
+          </div>
+        </div>
+
+        <!-- Dynamic Protein Progress Bar -->
+        <div class="progress-container">
+          <div class="progress-header">
+            <span id="proteinProgressPercentLabel">0% of daily target (0.0 / 85 g)</span>
+            <span id="proteinProgressStatusText">Start logging protein</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill protein" id="proteinProgressBarFill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Meal Summary Protein Distribution Pills -->
+        <div class="meal-summary-pills">
+          <div class="meal-pill">
+            <span class="meal-pill-title">☀️ Breakfast</span>
+            <span class="meal-pill-cals" id="breakfastProteinPill">0.0 g</span>
+          </div>
+          <div class="meal-pill">
+            <span class="meal-pill-title">🍛 Lunch</span>
+            <span class="meal-pill-cals" id="lunchProteinPill">0.0 g</span>
+          </div>
+          <div class="meal-pill">
+            <span class="meal-pill-title">🌙 Dinner</span>
+            <span class="meal-pill-cals" id="dinnerProteinPill">0.0 g</span>
+          </div>
+          <div class="meal-pill">
+            <span class="meal-pill-title">☕ Snack</span>
+            <span class="meal-pill-cals" id="snackProteinPill">0.0 g</span>
           </div>
         </div>
       </div>
@@ -671,6 +746,36 @@
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
           <button type="button" class="cat-pill" id="cancelGoalModalBtn">Cancel</button>
           <button type="submit" class="btn-primary" style="padding: 8px 18px;">Save Goal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Protein Target Modal Dialog -->
+  <div class="modal-backdrop" id="proteinModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Set Daily Protein Target</h3>
+        <button type="button" class="btn-close-modal" id="closeProteinModalBtn">✕</button>
+      </div>
+
+      <div class="preset-goals">
+        <button type="button" class="preset-protein-btn" data-preset="60">60 g</button>
+        <button type="button" class="preset-protein-btn" data-preset="75">75 g</button>
+        <button type="button" class="preset-protein-btn" data-preset="85">85 g</button>
+        <button type="button" class="preset-protein-btn" data-preset="100">100 g</button>
+        <button type="button" class="preset-protein-btn" data-preset="120">120 g</button>
+        <button type="button" class="preset-protein-btn" data-preset="140">140 g</button>
+      </div>
+
+      <form id="proteinForm">
+        <div class="form-group">
+          <label class="form-label" for="proteinInput">Custom Daily Protein Target (g):</label>
+          <input type="number" id="proteinInput" class="form-input" min="20" max="500" step="1" required>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+          <button type="button" class="cat-pill" id="cancelProteinModalBtn">Cancel</button>
+          <button type="submit" class="btn-primary" style="padding: 8px 18px; background: #2563eb;">Save Target</button>
         </div>
       </form>
     </div>

@@ -268,12 +268,27 @@ body {
   color: #15803d;
 }
 
+.stat-box.highlight-protein {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+.stat-box.highlight-protein .stat-val {
+  color: #1d4ed8;
+}
+
 .stat-box.warning {
   background: #fef2f2;
   border-color: #fecaca;
 }
 .stat-box.warning .stat-val {
   color: #dc2626;
+}
+
+.btn-edit-protein {
+  color: #2563eb;
+}
+.btn-edit-protein:hover {
+  color: #1d4ed8;
 }
 
 .btn-edit-goal {
@@ -323,6 +338,14 @@ body {
   border-radius: var(--radius-full);
   background: linear-gradient(90deg, #10b981, #0d9488);
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
+}
+
+.progress-bar-fill.protein {
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+}
+
+.progress-bar-fill.protein.completed {
+  background: linear-gradient(90deg, #10b981, #059669);
 }
 
 .progress-bar-fill.warning {
@@ -1173,6 +1196,24 @@ body {
   color: var(--text-main);
 }
 
+.preset-protein-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-protein-btn:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
 /* Toast Notifications */
 .toast-container {
   position: fixed;
@@ -1232,6 +1273,12 @@ body {
   grid-column: span 2;
 }
 
+.metric-card.highlight-protein-card {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  grid-column: span 2;
+}
+
 .metric-label {
   font-size: 0.72rem;
   font-weight: 600;
@@ -1253,6 +1300,11 @@ body {
 
 .metric-val.text-primary {
   color: var(--primary-dark);
+  font-size: 1.45rem;
+}
+
+.metric-val.text-protein {
+  color: #1d4ed8;
   font-size: 1.45rem;
 }
 
@@ -1307,7 +1359,7 @@ body {
   border: none;
   padding: 11px 16px;
   border-radius: var(--radius-md);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
   display: flex;
@@ -1322,6 +1374,16 @@ body {
   background: linear-gradient(135deg, #0f766e, #047857);
   transform: translateY(-1px);
   box-shadow: 0 6px 14px rgba(13, 148, 136, 0.35);
+}
+
+.btn-apply-goal.btn-apply-protein {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+}
+
+.btn-apply-goal.btn-apply-protein:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
 }
 
 /* ==========================================================================

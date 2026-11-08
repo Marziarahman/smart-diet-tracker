@@ -10,6 +10,7 @@
   // --- Constants & Storage Keys ---
   const STORAGE_KEY_LOGS = 'dietTracker_logs_v1';
   const STORAGE_KEY_GOAL = 'dietTracker_dailyGoal_v1';
+  const STORAGE_KEY_PROTEIN_GOAL = 'dietTracker_dailyProteinGoal_v1';
   const STORAGE_KEY_CUSTOM = 'dietTracker_customFoods_v1';
   const STORAGE_KEY_PROFILE = 'dietTracker_userProfile_v1';
   const STORAGE_KEY_WEIGHT = 'dietTracker_weightHistory_v1';
@@ -22,10 +23,12 @@
   let selectedFood = null;
   let activeUnitObj = null;
   let dailyGoal = 2000;
+  let dailyProteinGoal = 85;
   let customFoods = [];
   let dailyLogs = {};
   let userProfile = null;
   let calculatedHealthTarget = 1850;
+  let calculatedProteinTarget = 85;
   let weightHistory = [];
 
   // --- DOM Elements ---
@@ -62,6 +65,7 @@
   const elCustomFoodForm = document.getElementById('customFoodForm');
   const elCancelCustomFoodBtn = document.getElementById('cancelCustomFoodBtn');
 
+  // Calorie Dashboard Elements
   const elConsumedCaloriesVal = document.getElementById('consumedCaloriesVal');
   const elDailyGoalVal = document.getElementById('dailyGoalVal');
   const elRemainingCaloriesVal = document.getElementById('remainingCaloriesVal');
@@ -77,6 +81,30 @@
   const elDinnerTotalPill = document.getElementById('dinnerTotalPill');
   const elSnackTotalPill = document.getElementById('snackTotalPill');
 
+  // Protein Dashboard Elements
+  const elConsumedProteinVal = document.getElementById('consumedProteinVal');
+  const elDailyProteinGoalVal = document.getElementById('dailyProteinGoalVal');
+  const elRemainingProteinVal = document.getElementById('remainingProteinVal');
+  const elRemainingProteinStatLabel = document.getElementById('remainingProteinStatLabel');
+  const elRemainingProteinStatBox = document.getElementById('remainingProteinStatBox');
+
+  const elProteinProgressPercentLabel = document.getElementById('proteinProgressPercentLabel');
+  const elProteinProgressStatusText = document.getElementById('proteinProgressStatusText');
+  const elProteinProgressBarFill = document.getElementById('proteinProgressBarFill');
+
+  const elBreakfastProteinPill = document.getElementById('breakfastProteinPill');
+  const elLunchProteinPill = document.getElementById('lunchProteinPill');
+  const elDinnerProteinPill = document.getElementById('dinnerProteinPill');
+  const elSnackProteinPill = document.getElementById('snackProteinPill');
+
+  const elOpenProteinModalBtn = document.getElementById('openProteinModalBtn');
+  const elProteinModal = document.getElementById('proteinModal');
+  const elCloseProteinModalBtn = document.getElementById('closeProteinModalBtn');
+  const elCancelProteinModalBtn = document.getElementById('cancelProteinModalBtn');
+  const elProteinForm = document.getElementById('proteinForm');
+  const elProteinInput = document.getElementById('proteinInput');
+
+  // Meal Lists
   const elBreakfastSubtotal = document.getElementById('breakfastSubtotal');
   const elLunchSubtotal = document.getElementById('lunchSubtotal');
   const elDinnerSubtotal = document.getElementById('dinnerSubtotal');
@@ -145,6 +173,13 @@
       const savedGoal = localStorage.getItem(STORAGE_KEY_GOAL);
       if (savedGoal) {
         dailyGoal = parseInt(savedGoal, 10) || 2000;
+      }
+
+      const savedProteinGoal = localStorage.getItem(STORAGE_KEY_PROTEIN_GOAL);
+      if (savedProteinGoal) {
+        dailyProteinGoal = parseFloat(savedProteinGoal) || 85;
+      } else {
+        dailyProteinGoal = 85;
       }
 
       const savedCustom = localStorage.getItem(STORAGE_KEY_CUSTOM);
@@ -223,6 +258,14 @@
       localStorage.setItem(STORAGE_KEY_GOAL, dailyGoal.toString());
     } catch (e) {
       console.warn('LocalStorage save goal error:', e);
+    }
+  }
+
+  function saveProteinGoal() {
+    try {
+      localStorage.setItem(STORAGE_KEY_PROTEIN_GOAL, dailyProteinGoal.toString());
+    } catch (e) {
+      console.warn('LocalStorage save protein goal error:', e);
     }
   }
 
@@ -589,6 +632,13 @@
       Snack: 0
     };
 
+    const proteinSubtotals = {
+      Breakfast: 0,
+      Lunch: 0,
+      Dinner: 0,
+      Snack: 0
+    };
+
     const grouped = {
       Breakfast: [],
       Lunch: [],
@@ -601,6 +651,7 @@
       if (grouped[m]) {
         grouped[m].push(item);
         subtotals[m] += item.totalCalories || 0;
+        proteinSubtotals[m] += item.protein || 0;
       }
     });
 
@@ -656,17 +707,23 @@
       }
     });
 
-    // Update Subtotal Badges
-    elBreakfastSubtotal.textContent = `${subtotals.Breakfast.toLocaleString()} kcal`;
-    elLunchSubtotal.textContent = `${subtotals.Lunch.toLocaleString()} kcal`;
-    elDinnerSubtotal.textContent = `${subtotals.Dinner.toLocaleString()} kcal`;
-    elSnackSubtotal.textContent = `${subtotals.Snack.toLocaleString()} kcal`;
+    // Update Subtotal Badges (Total Calories and Total Protein together)
+    elBreakfastSubtotal.textContent = `${subtotals.Breakfast.toLocaleString()} kcal • ${proteinSubtotals.Breakfast.toFixed(1)}g P`;
+    elLunchSubtotal.textContent = `${subtotals.Lunch.toLocaleString()} kcal • ${proteinSubtotals.Lunch.toFixed(1)}g P`;
+    elDinnerSubtotal.textContent = `${subtotals.Dinner.toLocaleString()} kcal • ${proteinSubtotals.Dinner.toFixed(1)}g P`;
+    elSnackSubtotal.textContent = `${subtotals.Snack.toLocaleString()} kcal • ${proteinSubtotals.Snack.toFixed(1)}g P`;
 
-    // Update Mini Summary Pills
+    // Update Mini Summary Pills (Calories)
     elBreakfastTotalPill.textContent = `${subtotals.Breakfast.toLocaleString()} kcal`;
     elLunchTotalPill.textContent = `${subtotals.Lunch.toLocaleString()} kcal`;
     elDinnerTotalPill.textContent = `${subtotals.Dinner.toLocaleString()} kcal`;
     elSnackTotalPill.textContent = `${subtotals.Snack.toLocaleString()} kcal`;
+
+    // Update Mini Summary Pills (Protein)
+    if (elBreakfastProteinPill) elBreakfastProteinPill.textContent = `${proteinSubtotals.Breakfast.toFixed(1)} g`;
+    if (elLunchProteinPill) elLunchProteinPill.textContent = `${proteinSubtotals.Lunch.toFixed(1)} g`;
+    if (elDinnerProteinPill) elDinnerProteinPill.textContent = `${proteinSubtotals.Dinner.toFixed(1)} g`;
+    if (elSnackProteinPill) elSnackProteinPill.textContent = `${proteinSubtotals.Snack.toFixed(1)} g`;
   }
 
   // --- Update Dashboard Stats & Progress Bar ---
@@ -708,6 +765,64 @@
       elProgressBarFill.className = 'progress-bar-fill';
       elProgressStatusText.textContent = totalConsumed === 0 ? 'Start logging meals' : 'On track';
       elProgressStatusText.style.color = 'var(--success)';
+    }
+
+    // --- Protein Progress Bar & Stats Calculation ---
+    const totalProtein = entries.reduce((sum, item) => sum + (item.protein || 0), 0);
+    const roundedProtein = parseFloat(totalProtein.toFixed(1));
+    const remainingProtein = parseFloat((dailyProteinGoal - totalProtein).toFixed(1));
+
+    if (elConsumedProteinVal) elConsumedProteinVal.textContent = roundedProtein.toFixed(1);
+    if (elDailyProteinGoalVal) elDailyProteinGoalVal.textContent = dailyProteinGoal.toLocaleString();
+
+    if (elRemainingProteinVal && elRemainingProteinStatLabel && elRemainingProteinStatBox) {
+      if (remainingProtein > 0) {
+        elRemainingProteinStatLabel.textContent = 'Remaining';
+        elRemainingProteinVal.textContent = remainingProtein.toFixed(1);
+        elRemainingProteinStatBox.className = 'stat-box';
+        elRemainingProteinVal.style.color = 'var(--text-main)';
+      } else if (remainingProtein === 0) {
+        elRemainingProteinStatLabel.textContent = 'Goal Met';
+        elRemainingProteinVal.textContent = '0.0';
+        elRemainingProteinStatBox.className = 'stat-box highlight-protein';
+        elRemainingProteinVal.style.color = '#1d4ed8';
+      } else {
+        elRemainingProteinStatLabel.textContent = 'Goal Exceeded';
+        elRemainingProteinVal.textContent = `+${Math.abs(remainingProtein).toFixed(1)}`;
+        elRemainingProteinStatBox.className = 'stat-box highlight-protein';
+        elRemainingProteinVal.style.color = '#15803d';
+      }
+    }
+
+    // Protein Progress Bar
+    const proteinPercent = dailyProteinGoal > 0 ? Math.round((totalProtein / dailyProteinGoal) * 100) : 0;
+    if (elProteinProgressPercentLabel) {
+      elProteinProgressPercentLabel.textContent = `${proteinPercent}% of daily target (${roundedProtein.toFixed(1)} / ${dailyProteinGoal} g)`;
+    }
+
+    const proteinBarWidth = Math.min(proteinPercent, 100);
+    if (elProteinProgressBarFill) {
+      elProteinProgressBarFill.style.width = `${proteinBarWidth}%`;
+
+      if (proteinPercent >= 100) {
+        elProteinProgressBarFill.className = 'progress-bar-fill protein completed';
+        if (elProteinProgressStatusText) {
+          elProteinProgressStatusText.textContent = '🎉 Daily target reached!';
+          elProteinProgressStatusText.style.color = 'var(--success)';
+        }
+      } else if (proteinPercent >= 70) {
+        elProteinProgressBarFill.className = 'progress-bar-fill protein';
+        if (elProteinProgressStatusText) {
+          elProteinProgressStatusText.textContent = 'Almost there';
+          elProteinProgressStatusText.style.color = '#2563eb';
+        }
+      } else {
+        elProteinProgressBarFill.className = 'progress-bar-fill protein';
+        if (elProteinProgressStatusText) {
+          elProteinProgressStatusText.textContent = totalProtein === 0 ? 'Start logging protein' : 'Building up';
+          elProteinProgressStatusText.style.color = 'var(--text-muted)';
+        }
+      }
     }
   }
 
@@ -868,6 +983,51 @@
     });
   }
 
+  // --- Protein Target Editor Modal ---
+  function initProteinModal() {
+    if (!elOpenProteinModalBtn || !elProteinModal) return;
+
+    elOpenProteinModalBtn.addEventListener('click', () => {
+      elProteinInput.value = dailyProteinGoal;
+      elProteinModal.classList.add('open');
+      elProteinInput.focus();
+    });
+
+    const closeProteinModal = () => {
+      elProteinModal.classList.remove('open');
+    };
+
+    if (elCloseProteinModalBtn) elCloseProteinModalBtn.addEventListener('click', closeProteinModal);
+    if (elCancelProteinModalBtn) elCancelProteinModalBtn.addEventListener('click', closeProteinModal);
+
+    elProteinModal.addEventListener('click', (e) => {
+      if (e.target === elProteinModal) closeProteinModal();
+    });
+
+    document.querySelectorAll('.preset-protein-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = parseFloat(btn.getAttribute('data-preset'));
+        elProteinInput.value = val;
+      });
+    });
+
+    if (elProteinForm) {
+      elProteinForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const val = parseFloat(elProteinInput.value);
+        if (val >= 20 && val <= 500) {
+          dailyProteinGoal = val;
+          saveProteinGoal();
+          updateDashboardStats();
+          closeProteinModal();
+          showToast(`Daily protein target updated to ${val} g`, '🥩');
+        } else {
+          showToast('Please enter a target between 20 and 500 g', '⚠️');
+        }
+      });
+    }
+  }
+
   // --- Clear Day Log ---
   function initClearDayLog() {
     elClearDayLogBtn.addEventListener('click', () => {
@@ -933,6 +1093,12 @@
     const elResWeightDiff = document.getElementById('resWeightDiff');
     const elBtnTargetKcalSpan = document.getElementById('btnTargetKcalSpan');
     const elApplyGoalFromCalcBtn = document.getElementById('applyGoalFromCalcBtn');
+
+    // Protein calculation elements
+    const elResTargetProtein = document.getElementById('resTargetProtein');
+    const elResProteinNote = document.getElementById('resProteinNote');
+    const elBtnTargetProteinSpan = document.getElementById('btnTargetProteinSpan');
+    const elApplyProteinFromCalcBtn = document.getElementById('applyProteinFromCalcBtn');
 
     if (!elHealthCalcForm) return;
 
@@ -1013,6 +1179,30 @@
 
       calculatedHealthTarget = targetKcal;
 
+      // 5. Suggested Daily Protein Target
+      // Based on weight, age, activity level, and weight loss goal
+      // Standard sports nutrition: 1.2g/kg for sedentary, 1.4-1.6g/kg for moderate activity / weight loss preservation, up to 1.8-2.0g/kg for very active
+      let proteinMultiplier = 1.2;
+      if (activity >= 1.725) {
+        proteinMultiplier = 1.8;
+      } else if (activity >= 1.55) {
+        proteinMultiplier = 1.6;
+      } else if (activity >= 1.375) {
+        proteinMultiplier = 1.4;
+      } else {
+        proteinMultiplier = 1.2;
+      }
+
+      // If in a weight loss deficit, increase protein multiplier slightly to preserve lean muscle
+      if (weightDiff < -0.1) {
+        proteinMultiplier = Math.min(2.0, proteinMultiplier + 0.2);
+      }
+
+      // Calculate protein recommendation based on current weight
+      let recProtein = Math.round(weight * proteinMultiplier);
+      if (recProtein < 50) recProtein = 50;
+      calculatedProteinTarget = recProtein;
+
       // Render Results
       if (elResBmi) elResBmi.textContent = bmi.toFixed(1);
       if (elResBmiCategory) {
@@ -1023,6 +1213,13 @@
       if (elResTdee) elResTdee.textContent = tdee.toLocaleString();
       if (elResTargetCalories) elResTargetCalories.textContent = targetKcal.toLocaleString();
       if (elResDeficitNote) elResDeficitNote.textContent = deficitNote;
+
+      if (elResTargetProtein) elResTargetProtein.textContent = recProtein.toString();
+      if (elResProteinNote) {
+        elResProteinNote.textContent = `~${proteinMultiplier.toFixed(1)} g per kg body weight (${weightDiff < -0.1 ? 'muscle preservation during deficit' : 'optimal health'})`;
+      }
+      if (elBtnTargetProteinSpan) elBtnTargetProteinSpan.textContent = `${recProtein} g`;
+
       if (elResTargetWeight) elResTargetWeight.textContent = targetWeight.toLocaleString();
       if (elResWeightDiff) elResWeightDiff.textContent = weightDiffLabel;
       if (elBtnTargetKcalSpan) elBtnTargetKcalSpan.textContent = `${targetKcal.toLocaleString()} kcal`;
@@ -1030,7 +1227,7 @@
       if (elHealthResultsPanel) elHealthResultsPanel.style.display = 'block';
 
       // Persist state
-      userProfile = { age, gender, height, weight, activity, targetWeight, calculatedTarget: targetKcal };
+      userProfile = { age, gender, height, weight, activity, targetWeight, calculatedTarget: targetKcal, calculatedProteinTarget: recProtein };
       saveUserProfile();
 
       if (typeof window.refreshWeightProgressFromCalc === 'function') {
@@ -1038,7 +1235,7 @@
       }
 
       if (!isInitial) {
-        showToast('Personal health metrics & calorie target calculated!', '⚡');
+        showToast('Personal health metrics, calorie & protein targets calculated!', '⚡');
       }
     }
 
@@ -1053,7 +1250,18 @@
           dailyGoal = calculatedHealthTarget;
           saveGoal();
           updateDashboardStats();
-          showToast(`Daily Goal set to ${dailyGoal.toLocaleString()} kcal!`, '🎯');
+          showToast(`Daily Calorie Goal set to ${dailyGoal.toLocaleString()} kcal!`, '🎯');
+        }
+      });
+    }
+
+    if (elApplyProteinFromCalcBtn) {
+      elApplyProteinFromCalcBtn.addEventListener('click', () => {
+        if (calculatedProteinTarget && calculatedProteinTarget >= 20) {
+          dailyProteinGoal = calculatedProteinTarget;
+          saveProteinGoal();
+          updateDashboardStats();
+          showToast(`Daily Protein Target set to ${dailyProteinGoal} g!`, '🥩');
         }
       });
     }
@@ -1255,6 +1463,7 @@
               weightHistory: weightHistory || [],
               userProfile: userProfile || null,
               dailyGoal: dailyGoal || 2000,
+              dailyProteinGoal: dailyProteinGoal || 85,
               dailyLogs: dailyLogs || {},
               customFoods: customFoods || []
             }
@@ -1337,6 +1546,12 @@
             if (source.dailyGoal && !isNaN(source.dailyGoal)) {
               dailyGoal = parseInt(source.dailyGoal, 10);
               saveGoal();
+            }
+
+            // 3b. Restore Daily Protein Goal
+            if (source.dailyProteinGoal && !isNaN(source.dailyProteinGoal)) {
+              dailyProteinGoal = parseFloat(source.dailyProteinGoal);
+              saveProteinGoal();
             }
 
             // 4. Restore Daily Logs
@@ -1780,6 +1995,7 @@
     initQuantityControls();
     initCustomFoodForm();
     initGoalModal();
+    initProteinModal();
     initClearDayLog();
     initHealthCalculator();
     initWeightProgressTracking();
